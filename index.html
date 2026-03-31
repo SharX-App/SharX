@@ -588,10 +588,12 @@ function copyResult() {
   });
 }
 
-document.addEventListener('keyup', function(e) {
+document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && e.target.classList.contains('slot-input')) {
     e.preventDefault();
-    checkInteraction();
+    if (!document.getElementById('check-btn').disabled) {
+      checkInteraction();
+    }
   }
 });
 
