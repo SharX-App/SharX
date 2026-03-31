@@ -92,6 +92,19 @@
   .add-slot-btn:hover { background:#f0fdf8; }
   .add-slot-btn:disabled { color:#9ca3af;border-color:#d1d5db;cursor:not-allowed; }
 
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+  .slot-row.shake { animation:shake 0.45s ease; border-color:#DC2626 !important; }
+  .slot-row.shake .slot-input { color:#DC2626; }
+
+  .tab-btn { flex:1; padding:8px 12px; font-size:12px; font-weight:600; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .tab-btn-active { background:#1D9E75; color:#fff; border:1px solid #1D9E75; }
+  .tab-btn-inactive { border:1px solid #e5e7eb; background:#fff; color:#1a1a1a; }
+
+  .error-card { display:none; margin-top:0.5rem; padding:14px 16px; background:#fef2f2; border:1px solid #fca5a5; border-radius:12px; }
+  .error-card-title { font-size:13px; font-weight:600; color:#DC2626; margin-bottom:6px; }
+  .error-card-msg { font-size:13px; color:#374151; line-height:1.6; }
+  .error-card-btn { margin-top:10px; font-size:12px; padding:5px 14px; background:#DC2626; color:#fff; border:none; border-radius:7px; cursor:pointer; font-weight:600; }
+
   /* PDF styles */
   @media print {
     body { background: #fff; }
@@ -134,7 +147,7 @@
             <option value="Supplement">🧴 Supplement</option>
             <option value="Herb">🌿 Herb</option>
           </select>
-          <input type="text" class="slot-input" placeholder="e.g. Warfarin" />
+          <input type="text" class="slot-input" placeholder="e.g. Warfarin — prefer generic / INN name" />
           <button class="slot-remove" style="visibility:hidden" onclick="removeSlot(0)">×</button>
         </div>
         <div class="slot-row" id="slot-1">
@@ -180,6 +193,12 @@
         <span class="pill" onclick="loadExample([['Drug (Rx)','Aspirin'],['Supplement','Fish Oil'],['Herb','Ginger']])">Aspirin + Fish Oil + Ginger</span>
       </div>
 
+      <div class="error-card" id="error-card">
+        <div class="error-card-title" id="error-title">Something went wrong</div>
+        <div class="error-card-msg" id="error-message"></div>
+        <button class="error-card-btn" onclick="document.getElementById('error-card').style.display='none';">Try again</button>
+      </div>
+
       <div class="loading" id="loading">
         <div id="loading-text" style="font-size:15px;font-weight:600;color:#1D9E75;min-height:24px;"></div>
         <div style="font-size:12px;color:#9ca3af;margin-top:6px;">This may take a few seconds...</div>
@@ -192,8 +211,8 @@
         </div>
         <div class="meta-row" id="meta-row" style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid #f0f0f0;"></div>
         <div style="display:flex;gap:8px;padding:10px 14px;background:#f9fafb;border-bottom:1px solid #e5e7eb;">
-          <button id="tab-interactions" onclick="switchTab('interactions')" style="flex:1;padding:8px 12px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:1px solid #e5e7eb;background:#fff;color:#1a1a1a;display:flex;align-items:center;justify-content:center;gap:6px;">Interactions</button>
-          <button id="tab-contraindications" onclick="switchTab('contraindications')" style="flex:1;padding:8px 12px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;background:#1D9E75;color:#fff;border:1px solid #1D9E75;display:flex;align-items:center;justify-content:center;gap:6px;">Contraindications <span id="contra-badge" style="background:#DC2626;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;display:none;">0</span></button>
+          <button id="tab-interactions" class="tab-btn tab-btn-inactive" onclick="switchTab('interactions')">Interactions</button>
+          <button id="tab-contraindications" class="tab-btn tab-btn-active" onclick="switchTab('contraindications')">Contraindications <span id="contra-badge" style="background:#DC2626;color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;display:none;">0</span></button>
         </div>
         <div id="panel-interactions" class="result-body">
           <div class="result-section">
@@ -215,7 +234,23 @@
         <div class="result-footer">
           <button class="footer-btn primary" onclick="printReport()">Download PDF report</button>
           <button class="footer-btn" id="copy-btn" onclick="copyResult()">Copy text</button>
+          <button class="footer-btn" id="share-btn" onclick="shareResult()">🔗 Share</button>
+          <button class="footer-btn" id="refresh-btn" onclick="refreshCurrentResult()" style="display:none;">🔄 Refresh</button>
           <button class="footer-btn" onclick="resetForm()">New check</button>
+        </div>
+      </div>
+
+      <div id="install-banner" style="display:none;margin-top:1rem;padding:12px 16px;background:#f0fdf8;border:1px solid #6ee7c7;border-radius:12px;display:none;align-items:center;gap:12px;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:22px;">📲</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#0f766e;">Add SharX to your home screen</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:1px;">Instant access, works like a native app</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button onclick="installApp()" style="font-size:12px;font-weight:600;padding:6px 14px;background:#1D9E75;color:#fff;border:none;border-radius:8px;cursor:pointer;">Install</button>
+          <button onclick="dismissInstall()" style="font-size:12px;padding:6px 10px;background:transparent;color:#9ca3af;border:none;cursor:pointer;font-size:18px;line-height:1;">×</button>
         </div>
       </div>
 
@@ -265,7 +300,7 @@ function removeConditionByIndex(i) {
   renderConditions();
 }
 
-const placeholders = { 'Drug (Rx)': 'e.g. Warfarin', 'Supplement': 'e.g. Fish Oil', 'Herb': 'e.g. St. Johns Wort' };
+const placeholders = { 'Drug (Rx)': 'e.g. Warfarin — prefer generic / INN name', 'Supplement': 'e.g. Fish Oil', 'Herb': 'e.g. St. Johns Wort' };
 
 function updatePlaceholder(i) {
   const row = document.getElementById('slot-' + i);
@@ -314,29 +349,109 @@ function getSlots() {
   }).filter(function(s) { return s.value; });
 }
 
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+var CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+var currentCacheKey = null;
+
+function getCacheKey(slots) {
+  return slots.map(function(s) { return s.value.trim().toLowerCase(); }).sort().join('|');
+}
+
+function getFromCache(key) {
+  try {
+    var entry = JSON.parse(localStorage.getItem('sharx_cache_' + key) || 'null');
+    if (!entry) return null;
+    if (Date.now() - entry.ts > CACHE_TTL) { localStorage.removeItem('sharx_cache_' + key); return null; }
+    return entry.result;
+  } catch(e) { return null; }
+}
+
+function saveToCache(key, result) {
+  try { localStorage.setItem('sharx_cache_' + key, JSON.stringify({ result: result, ts: Date.now() })); } catch(e) {}
+}
+
+function showError(msg) {
+  var map = {
+    'Failed to fetch': 'Connection timed out. Please check your internet and try again.',
+    'NetworkError': 'Connection timed out. Please check your internet and try again.',
+    'Load failed': 'Connection timed out. Please check your internet and try again.',
+    'Invalid response format': 'Unexpected response format. Please try again.',
+    '429': 'Too many requests. Please wait a moment.',
+    '500': 'Service temporarily unavailable. Please try again in a moment.',
+    '502': 'Service temporarily unavailable. Please try again in a moment.',
+    '503': 'Service temporarily unavailable. Please try again in a moment.'
+  };
+  var friendly = null;
+  for (var key in map) { if (msg.indexOf(key) !== -1) { friendly = map[key]; break; } }
+  document.getElementById('error-message').textContent = friendly || msg;
+  document.getElementById('error-card').style.display = 'block';
+}
+
+function refreshCurrentResult() {
+  if (currentCacheKey) {
+    try { localStorage.removeItem('sharx_cache_' + currentCacheKey); } catch(e) {}
+  }
+  document.getElementById('refresh-btn').style.display = 'none';
+  checkInteraction(true);
+}
+
 function switchTab(tab) {
   const ti = document.getElementById('tab-interactions');
   const tc = document.getElementById('tab-contraindications');
   if (tab === 'interactions') {
-    ti.style.cssText = 'flex:1;padding:8px 12px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:1px solid #e5e7eb;background:#fff;color:#1a1a1a;display:flex;align-items:center;justify-content:center;gap:6px;';
-    tc.style.cssText = 'flex:1;padding:8px 12px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;background:#1D9E75;color:#fff;border:1px solid #1D9E75;display:flex;align-items:center;justify-content:center;gap:6px;';
+    ti.className = 'tab-btn tab-btn-active';
+    tc.className = 'tab-btn tab-btn-inactive';
     document.getElementById('panel-interactions').style.display = 'block';
     document.getElementById('panel-contraindications').style.display = 'none';
   } else {
-    ti.style.cssText = 'flex:1;padding:8px 12px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;background:#1D9E75;color:#fff;border:1px solid #1D9E75;display:flex;align-items:center;justify-content:center;gap:6px;';
-    tc.style.cssText = 'flex:1;padding:8px 12px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:1px solid #e5e7eb;background:#fff;color:#1a1a1a;display:flex;align-items:center;justify-content:center;gap:6px;';
+    ti.className = 'tab-btn tab-btn-inactive';
+    tc.className = 'tab-btn tab-btn-active';
     document.getElementById('panel-interactions').style.display = 'none';
     document.getElementById('panel-contraindications').style.display = 'block';
   }
 }
 
-async function checkInteraction() {
+async function checkInteraction(forceRefresh) {
 
   const slots = getSlots();
-  if (slots.length === 0) return;
+  if (slots.length === 0) {
+    document.querySelectorAll('.slot-row').forEach(function(row) {
+      row.classList.remove('shake');
+      void row.offsetWidth;
+      row.classList.add('shake');
+      setTimeout(function() { row.classList.remove('shake'); }, 2000);
+    });
+    return;
+  }
+
+  if (!navigator.onLine) {
+    showError('You\'re offline. SharX needs internet to analyze interactions.');
+    return;
+  }
+
+  document.getElementById('error-card').style.display = 'none';
   document.getElementById('result-card').style.display = 'none';
   document.getElementById('loading').style.display = 'block';
   document.getElementById('check-btn').disabled = true;
+
+  const cacheKey = getCacheKey(slots);
+  currentCacheKey = cacheKey;
+
+  if (!forceRefresh && conditions.length === 0) {
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('check-btn').disabled = false;
+      saveToHistory(slots, cached);
+      showResult(slots, cached, true);
+      return;
+    }
+  }
 
   // Smart loading text
   const substanceNames = slots.map(function(s) { return s.value; }).filter(Boolean).join(' + ');
@@ -365,6 +480,7 @@ async function checkInteraction() {
     'Your role is to provide accurate, evidence-based clinical analysis of interactions between ' +
     'drugs, supplements, herbal preparations, and food/beverages. ' +
     'Clinical accuracy is the absolute priority. ' +
+    'NORMALIZATION: Before any analysis, internally resolve all substance inputs to their canonical English common name + Latin binomial (if herb/plant) or INN (if drug). Use ONLY the canonical form throughout the analysis. "Ashwagandha" and "Withania somnifera" must produce identical analysis. Note the resolved canonical name at the start of mechanism. ' +
     'RULES: ' +
     '(1) Brand drug names (including regional/local brands from any country) -> always attempt to identify generic INN using all available pharmaceutical knowledge. If confident, proceed normally. If uncertain, make your best attempt, note the identified INN in mechanism, and add a clear warning: "Identified as [INN] — please verify the generic name before relying on this analysis." Only use UNKNOWN if completely unidentifiable. ' +
     '(2) Herb names in any language or Latin -> identify English+Latin name, note in mechanism. ' +
@@ -396,6 +512,7 @@ async function checkInteraction() {
         messages: [{ role: 'user', content: userMessage }]
       })
     });
+    if (!response.ok) throw new Error(String(response.status));
     const data = await response.json();
     const text = data.content.map(function(i) { return i.text || ''; }).join('');
     const clean = text.replace(/```json|```/g, '').trim();
@@ -404,13 +521,14 @@ async function checkInteraction() {
     const result = JSON.parse(clean.substring(j1, j2 + 1));
     clearInterval(loadingInterval);
     document.getElementById('loading').style.display = 'none';
+    if (conditions.length === 0) saveToCache(cacheKey, result);
     saveToHistory(slots, result);
-    showResult(slots, result);
+    showResult(slots, result, false);
   } catch(e) {
     clearInterval(loadingInterval);
     document.getElementById('loading').style.display = 'none';
     document.getElementById('check-btn').disabled = false;
-    alert('Error: ' + e.message);
+    showError(e.message);
   }
 }
 
@@ -477,7 +595,8 @@ document.addEventListener('keyup', function(e) {
   }
 });
 
-function showResult(slots, result) {
+function showResult(slots, result, fromCache) {
+  document.getElementById('refresh-btn').style.display = fromCache ? 'inline-block' : 'none';
   document.getElementById('result-title').textContent = slots.map(function(s) { return s.value; }).join(' + ');
   const badge = document.getElementById('severity-badge');
   badge.textContent = result.severity;
@@ -485,13 +604,13 @@ function showResult(slots, result) {
 
   const metaRow = document.getElementById('meta-row');
   metaRow.innerHTML = '';
-  if (result.cyp) metaRow.innerHTML += '<span class="meta-chip">CYP: ' + result.cyp + '</span>';
+  if (result.cyp) metaRow.innerHTML += '<span class="meta-chip">CYP: ' + escapeHtml(result.cyp) + '</span>';
   if (result.frequency) {
     var freqColors = { 'Common':'#DC2626', 'Uncommon':'#EA580C', 'Rare':'#16A34A', 'Theoretical':'#64748b' };
     var fc = freqColors[result.frequency] || '#64748b';
-    metaRow.innerHTML += '<span class="meta-chip" style="border-color:' + fc + ';color:' + fc + ';font-weight:600;">📊 ' + result.frequency + '</span>';
+    metaRow.innerHTML += '<span class="meta-chip" style="border-color:' + fc + ';color:' + fc + ';font-weight:600;">📊 ' + escapeHtml(result.frequency) + '</span>';
   }
-  slots.forEach(function(s) { metaRow.innerHTML += '<span class="meta-chip">' + getEmoji(s.type) + ' ' + s.type + ': ' + s.value + '</span>'; });
+  slots.forEach(function(s) { metaRow.innerHTML += '<span class="meta-chip">' + getEmoji(s.type) + ' ' + escapeHtml(s.type) + ': ' + escapeHtml(s.value) + '</span>'; });
 
   // Unknown substance UI
   const panel = document.getElementById('panel-interactions');
@@ -516,7 +635,7 @@ function showResult(slots, result) {
     contraList.innerHTML = result.contraindications.map(function(c) {
       const k = c.personal ? 'personal' : (c.level === 'major' ? 'major' : (c.level === 'moderate' ? 'moderate' : 'info'));
       const col = colors[k];
-      return '<div style="display:flex;gap:9px;padding:9px 11px;border-radius:8px;margin-bottom:6px;background:' + col[0] + ';border:1px solid ' + col[1] + ';align-items:flex-start;"><div style="width:8px;height:8px;border-radius:50%;margin-top:3px;flex-shrink:0;background:' + col[2] + ';"></div><div><div style="font-size:11px;font-weight:700;color:' + col[3] + ';margin-bottom:2px;">' + (c.personal ? '⚠️ ' : '') + c.title + (c.personal ? ' — your condition' : '') + '</div><div style="font-size:10px;line-height:1.6;color:' + col[4] + ';">' + c.description + '</div></div></div>';
+      return '<div style="display:flex;gap:9px;padding:9px 11px;border-radius:8px;margin-bottom:6px;background:' + col[0] + ';border:1px solid ' + col[1] + ';align-items:flex-start;"><div style="width:8px;height:8px;border-radius:50%;margin-top:3px;flex-shrink:0;background:' + col[2] + ';"></div><div><div style="font-size:11px;font-weight:700;color:' + col[3] + ';margin-bottom:2px;">' + (c.personal ? '⚠️ ' : '') + escapeHtml(c.title) + (c.personal ? ' — your condition' : '') + '</div><div style="font-size:10px;line-height:1.6;color:' + col[4] + ';">' + escapeHtml(c.description) + '</div></div></div>';
     }).join('');
   } else {
     contraList.innerHTML = '<div style="font-size:13px;color:#64748b;text-align:center;padding:16px;">No significant contraindications found.</div>';
@@ -567,7 +686,7 @@ function printReport() {
   doc.setFontSize(7.5); doc.setTextColor(...gray); doc.setFont('helvetica','italic');
   doc.text(doc.splitTextToSize('SharX is for educational reference only. Always consult a licensed healthcare provider.',174),18,y+5);
   doc.setFontSize(7); doc.setTextColor(...gray); doc.setFont('helvetica','normal');
-  doc.text('Reviewed by Branimir Beljin, MPharm (University of Belgrade)   |   playful-liger-409d58.netlify.app',14,290);
+  doc.text('Reviewed by Branimir Beljin, MPharm (University of Belgrade)   |   sharx-app.github.io/SharX',14,290);
   doc.save('SharX-' + slots.map(function(s){return s.value.replace(/\s+/g,'-');}).join('-') + '.pdf');
 }
 
@@ -577,6 +696,50 @@ function resetForm() {
   document.getElementById('result-card').style.display = 'none';
   conditions = []; renderConditions();
   document.getElementById('conditions-input').value = '';
+  history.replaceState(null, '', window.location.pathname);
+}
+
+function shareResult() {
+  var slots = getSlots();
+  if (!slots.length) return;
+  var param = slots.map(function(s) { return encodeURIComponent(s.type + ':' + s.value); }).join(',');
+  var url = window.location.origin + window.location.pathname + '?s=' + param;
+  var btn = document.getElementById('share-btn');
+  if (navigator.share) {
+    navigator.share({
+      title: 'SharX interaction check',
+      text: slots.map(function(s) { return s.value; }).join(' + ') + ' — check the interaction on SharX',
+      url: url
+    });
+  } else {
+    navigator.clipboard.writeText(url).then(function() {
+      btn.textContent = '✓ Link copied!';
+      setTimeout(function() { btn.textContent = '🔗 Share'; }, 2500);
+    }).catch(function() {
+      btn.textContent = '✓ Link copied!';
+      var ta = document.createElement('textarea');
+      ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+      setTimeout(function() { btn.textContent = '🔗 Share'; }, 2500);
+    });
+  }
+}
+
+function loadFromUrl() {
+  var params = new URLSearchParams(window.location.search);
+  var s = params.get('s');
+  if (!s) return;
+  try {
+    var slots = s.split(',').map(function(p) {
+      var decoded = decodeURIComponent(p);
+      var idx = decoded.indexOf(':');
+      if (idx === -1) return ['Drug (Rx)', decoded.trim()];
+      return [decoded.substring(0, idx), decoded.substring(idx + 1).trim()];
+    }).filter(function(slot) { return slot[1]; });
+    if (!slots.length) return;
+    loadExample(slots);
+    checkInteraction();
+  } catch(e) {}
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -588,6 +751,30 @@ if ('serviceWorker' in navigator) {
   });
 }
 renderHistory();
+loadFromUrl();
+
+var deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  if (localStorage.getItem('sharx_install_dismissed')) return;
+  deferredInstallPrompt = e;
+  document.getElementById('install-banner').style.display = 'flex';
+});
+
+function installApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.then(function() {
+    deferredInstallPrompt = null;
+    document.getElementById('install-banner').style.display = 'none';
+  });
+}
+
+function dismissInstall() {
+  document.getElementById('install-banner').style.display = 'none';
+  localStorage.setItem('sharx_install_dismissed', '1');
+}
 </script>
 </body>
 </html>
