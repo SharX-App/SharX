@@ -149,6 +149,7 @@
         <div class="sharx-tagline">Supplement, Herb &amp; Rx (drug) interaXtion</div>
         </div>
       <div class="lang-dropdown" id="lang-dropdown">
+        <div style="font-size:10px;color:#9ca3af;text-align:right;margin-bottom:3px;">Results language</div>
         <button class="lang-btn" onclick="toggleLangMenu()" id="lang-btn">🌐 <span id="lang-label">EN</span> ▾</button>
         <div class="lang-menu" id="lang-menu">
           <div class="lang-option active" onclick="setLanguage('en','EN','🇬🇧')">🇬🇧 English</div>
@@ -361,9 +362,8 @@ function handleConditionKey(e) {
 function renderConditions() {
   const wrap = document.getElementById('conditions-tags');
   wrap.style.marginTop = conditions.length ? '8px' : '0';
-  wrap.innerHTML = conditions.map(function(c) {
-    var safe = c.replace(/"/g, '&quot;');
-    return '<span style="background:#eff6ff;color:#1d4ed8;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;cursor:pointer;" onclick="removeConditionByIndex(' + conditions.indexOf(c) + ')">' + c + ' ×</span>';
+  wrap.innerHTML = conditions.map(function(c, idx) {
+    return '<span style="background:#eff6ff;color:#1d4ed8;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;cursor:pointer;" onclick="removeConditionByIndex(' + idx + ')">' + escapeHtml(c) + ' ×</span>';
   }).join('');
 }
 
@@ -435,7 +435,7 @@ var CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 var currentCacheKey = null;
 
 function getCacheKey(slots) {
-  return slots.map(function(s) { return s.value.trim().toLowerCase(); }).sort().join('|');
+  return slots.map(function(s) { return s.value.trim().toLowerCase(); }).sort().join('|') + '|lang:' + currentLang;
 }
 
 function getFromCache(key) {
@@ -628,7 +628,7 @@ function renderHistory() {
     el.style.display = 'block';
     el.innerHTML = '<div class="example-label" style="margin-bottom:6px;">Recent checks:</div><div style="display:flex;flex-wrap:wrap;gap:6px;">' +
       history.map(function(h, i) {
-        var name = h.slots.map(function(s) { return s.value; }).join(' + ');
+        var name = h.slots.map(function(s) { return escapeHtml(s.value); }).join(' + ');
         var col = sevColor[h.result.severity] || '#64748b';
         return '<span class="pill" onclick="loadHistory(' + i + ')" style="display:inline-flex;align-items:center;gap:5px;">' +
           '<span style="width:7px;height:7px;border-radius:50%;background:' + col + ';flex-shrink:0;"></span>' +
@@ -643,7 +643,7 @@ function loadHistory(i) {
     var h = history[i];
     if (!h) return;
     loadExample(h.slots.map(function(s) { return [s.type, s.value]; }));
-    showResult(h.slots, h.result);
+    showResult(h.slots, h.result, false);
   } catch(e) {}
 }
 
