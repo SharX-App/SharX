@@ -33,9 +33,11 @@
   .lang-dropdown { position: relative; }
   .lang-btn { display: flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 13px; font-weight: 500; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; cursor: pointer; color: #374151; white-space: nowrap; }
   .lang-btn:hover { border-color: #1D9E75; color: #1D9E75; }
-  .lang-menu { display: none; position: fixed; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 9999; min-width: 150px; overflow: hidden; }
+  .lang-menu { display: none; position: fixed; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 9999; min-width: 150px; }
   .lang-menu.open { display: block; }
-  .lang-option { display: flex; align-items: center; gap: 8px; padding: 9px 14px; font-size: 13px; cursor: pointer; color: #374151; }
+  .lang-option { display: flex; align-items: center; gap: 8px; padding: 9px 14px; font-size: 13px; cursor: pointer; color: #374151; border-radius: 0; }
+  .lang-option:first-child { border-radius: 10px 10px 0 0; }
+  .lang-option:last-child { border-radius: 0 0 10px 10px; }
   .lang-option:hover { background: #f0fdf8; color: #1D9E75; }
   .lang-option.active { font-weight: 600; color: #1D9E75; }
 
