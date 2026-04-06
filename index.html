@@ -577,11 +577,12 @@ async function checkInteraction(forceRefresh) {
     '(6) Unrecognized substance (only if Rule 1 and Rule 4 cannot make any identification) -> severity UNKNOWN, unknown_substance:true, unknown_name to substance name. If Rule 1 made a best-guess identification, do NOT set unknown_substance:true — instead proceed with the analysis and include the uncertainty warning in mechanism. ' +
     '(7) List up to 6 contraindications; ALWAYS include relevant food, beverage, timing and administration notes (e.g. dairy with tetracycline, grapefruit with statins, alcohol warnings, iron on empty stomach, take with food) as level:info cards — these are expected for every result; personal patient conditions mark as personal:true; keep descriptions under 15 words. ' +
     '(8) frequency: how often this interaction occurs clinically — use exactly one of: "Common" (well-documented, frequently reported), "Uncommon" (documented but infrequent), "Rare" (case reports only), "Theoretical" (mechanism-based, not clinically confirmed). ' +
+    'LANGUAGE INVARIANT FIELDS — regardless of any language instruction, these JSON fields MUST always be in English: severity (always one of: MAJOR/MODERATE/MINOR/UNKNOWN/INFO), frequency (always one of: Common/Uncommon/Rare/Theoretical), level in contraindications (always one of: major/moderate/minor/info), cyp, unknown_substance, unknown_name. Only translate narrative text fields: mechanism, clinical, recommendation, title, description. The clinical assessment (severity, frequency) must be identical regardless of response language — language does not affect clinical facts. ' +
     'Respond ONLY with valid JSON, no markdown, no explanation: ' +
     '{"severity":"MAJOR","frequency":"Common","cyp":null,"unknown_substance":false,"unknown_name":null,"mechanism":"","clinical":"","recommendation":"","contraindications":[{"substance":"","title":"","description":"","level":"major","personal":false}]}';
 
   // --- USER MESSAGE (dynamic: actual query + patient conditions) ---
-  const langInstruction = currentLang !== 'en' ? ' Respond entirely in ' + LANGUAGES[currentLang] + '.' : '';
+  const langInstruction = currentLang !== 'en' ? ' Translate only the narrative text fields (mechanism, clinical, recommendation, contraindication titles and descriptions) into ' + LANGUAGES[currentLang] + '. Keep all JSON keys and enumerated values (severity, frequency, level) in English.' : '';
   const userMessage =
     (isSolo
       ? 'SOLO CHECK for: ' + query + '. Provide pharmacological overview in mechanism, set severity by risk profile, list contraindications including food/drink interactions and administration notes.'
