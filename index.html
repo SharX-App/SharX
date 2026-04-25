@@ -424,7 +424,7 @@ function loadExample(slots) {
   slots.forEach(function(slot, i) {
     const div = document.createElement('div');
     div.className = 'slot-row'; div.id = 'slot-' + i;
-    div.innerHTML = '<select class="slot-type" onchange="updatePlaceholder(' + i + ')"><option value="' + slot[0] + '">' + getEmoji(slot[0]) + ' ' + slot[0] + '</option><option value="Drug (Rx)">💊 Drug (Rx)</option><option value="Supplement">🧴 Supplement</option><option value="Herb">🌿 Herb</option></select><input type="text" class="slot-input" value="' + slot[1] + '" /><button class="slot-remove" style="' + (i===0?'visibility:hidden':'') + '" onclick="removeSlot(' + i + ')">×</button>';
+    div.innerHTML = '<select class="slot-type" onchange="updatePlaceholder(' + i + ')"><option value="' + escapeHtml(slot[0]) + '">' + getEmoji(slot[0]) + ' ' + escapeHtml(slot[0]) + '</option><option value="Drug (Rx)">💊 Drug (Rx)</option><option value="Supplement">🧴 Supplement</option><option value="Herb">🌿 Herb</option></select><input type="text" class="slot-input" value="' + escapeHtml(slot[1]) + '" /><button class="slot-remove" style="' + (i===0?'visibility:hidden':'') + '" onclick="removeSlot(' + i + ')">×</button>';
     wrapper.appendChild(div);
   });
   document.getElementById('add-slot-btn').disabled = slots.length >= 5;
@@ -706,7 +706,7 @@ function showResult(slots, result, fromCache) {
   // Unknown substance UI
   const panel = document.getElementById('panel-interactions');
   if (result.unknown_substance && result.unknown_name) {
-    panel.innerHTML = '<div style="padding:16px;"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:12px 14px;"><div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:3px;">🔍 Substance not recognized — ' + result.unknown_name + '</div><div style="font-size:11px;color:#64748b;line-height:1.6;">Not found as a standard drug, supplement, or herb.</div><div style="margin-top:8px;padding:6px 10px;background:#eff6ff;border-radius:7px;font-size:11px;color:#1d4ed8;font-weight:500;">💡 Enter the generic/INN name or active ingredient from the product label.</div></div></div>';
+    panel.innerHTML = '<div style="padding:16px;"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:12px 14px;"><div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:3px;">🔍 Substance not recognized — ' + escapeHtml(result.unknown_name) + '</div><div style="font-size:11px;color:#64748b;line-height:1.6;">Not found as a standard drug, supplement, or herb.</div><div style="margin-top:8px;padding:6px 10px;background:#eff6ff;border-radius:7px;font-size:11px;color:#1d4ed8;font-weight:500;">💡 Enter the generic/INN name or active ingredient from the product label.</div></div></div>';
   } else {
     panel.innerHTML = '<div class="result-body"><div class="result-section"><div class="result-section-title">Mechanism</div><div class="result-text" id="result-mechanism"></div></div><div class="result-section"><div class="result-section-title">Clinical significance</div><div class="result-text" id="result-clinical"></div></div><div class="result-section"><div class="result-section-title">Recommendation</div><div class="result-text" id="result-recommendation"></div></div></div>';
     document.getElementById('result-mechanism').textContent = result.mechanism || '';
