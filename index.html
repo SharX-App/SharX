@@ -597,7 +597,7 @@ async function checkInteraction(forceRefresh) {
         model: 'claude-sonnet-4-20250514',
         max_tokens: 4000,
         temperature: 0,
-        system: systemPrompt,
+        system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: userMessage }]
       })
     });
