@@ -444,9 +444,11 @@ function escapeHtml(str) {
 
 var CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 var currentCacheKey = null;
+var lastResult = null;
 
-function getCacheKey(slots) {
-  return slots.map(function(s) { return s.value.trim().toLowerCase(); }).sort().join('|') + '|lang:' + currentLang;
+function getCacheKey(slots, conds) {
+  var condKey = conds && conds.length ? '|cond:' + conds.map(function(c) { return c.trim().toLowerCase(); }).sort().join(',') : '';
+  return slots.map(function(s) { return s.value.trim().toLowerCase(); }).sort().join('|') + condKey + '|lang:' + currentLang;
 }
 
 function getFromCache(key) {
@@ -526,10 +528,10 @@ async function checkInteraction(forceRefresh) {
   document.getElementById('loading').style.display = 'block';
   document.getElementById('check-btn').disabled = true;
 
-  const cacheKey = getCacheKey(slots);
+  const cacheKey = getCacheKey(slots, conditions);
   currentCacheKey = cacheKey;
 
-  if (!forceRefresh && conditions.length === 0) {
+  if (!forceRefresh) {
     const cached = getFromCache(cacheKey);
     if (cached) {
       document.getElementById('loading').style.display = 'none';
@@ -610,7 +612,7 @@ async function checkInteraction(forceRefresh) {
     const result = JSON.parse(clean.substring(j1, j2 + 1));
     clearInterval(loadingInterval);
     document.getElementById('loading').style.display = 'none';
-    if (conditions.length === 0) saveToCache(cacheKey, result);
+    saveToCache(cacheKey, result);
     saveToHistory(slots, result);
     showResult(slots, result, false);
   } catch(e) {
@@ -669,7 +671,7 @@ function copyResult() {
     '\n\nMechanism:\n' + mech +
     '\n\nClinical significance:\n' + clin +
     '\n\nRecommendation:\n' + rec +
-    '\n\n— SharX (sharx.pages.dev)';
+    '\n\n— SharX (sharx-app.github.io/SharX)';
   navigator.clipboard.writeText(text).then(function() {
     var btn = document.getElementById('copy-btn');
     btn.textContent = 'Copied!';
@@ -687,6 +689,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 function showResult(slots, result, fromCache) {
+  lastResult = result;
   document.getElementById('refresh-btn').style.display = fromCache ? 'inline-block' : 'none';
   document.getElementById('result-title').textContent = slots.map(function(s) { return s.value; }).join(' + ');
   const badge = document.getElementById('severity-badge');
@@ -773,6 +776,25 @@ function printReport() {
     const ls=doc.splitTextToSize(txt,182); doc.text(ls,14,y); y+=ls.length*5.5+6;
   }
   addSec('Mechanism',mech); addSec('Clinical Significance',clin); addSec('Recommendation',rec);
+  if (lastResult && lastResult.contraindications && lastResult.contraindications.length > 0) {
+    y+=2;
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...gray); doc.text('CONTRAINDICATIONS & NOTES',14,y); y+=5;
+    var lvlCol={major:[220,38,38],moderate:[234,88,12],minor:[22,163,74],info:[59,130,246],personal:[29,158,117]};
+    var lvlLbl={major:'MAJOR',moderate:'MODERATE',minor:'MINOR',info:'NOTE',personal:'PERSONAL'};
+    lastResult.contraindications.forEach(function(c) {
+      if (y > 265) { doc.addPage(); y=20; }
+      var k=c.personal?'personal':(c.level||'info');
+      var col=lvlCol[k]||[107,114,128];
+      doc.setFillColor(...col); doc.circle(16,y-1,1.5,'F');
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...col);
+      doc.text('['+( lvlLbl[k]||'NOTE')+'] '+(c.title||''),20,y); y+=4;
+      if(c.description){
+        doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...dark);
+        var dl=doc.splitTextToSize(c.description,172); doc.text(dl,20,y); y+=dl.length*4+3;
+      }
+    });
+    y+=2;
+  }
   y+=4; doc.setFillColor(...lgray); doc.rect(14,y,182,16,'F');
   doc.setFontSize(7.5); doc.setTextColor(...gray); doc.setFont('helvetica','italic');
   doc.text(doc.splitTextToSize('SharX is for educational reference only. Always consult a licensed healthcare provider.',174),18,y+5);
@@ -807,11 +829,7 @@ function shareResult() {
       btn.textContent = '✓ Link copied!';
       setTimeout(function() { btn.textContent = '🔗 Share'; }, 2500);
     }).catch(function() {
-      btn.textContent = '✓ Link copied!';
-      var ta = document.createElement('textarea');
-      ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-      document.body.removeChild(ta);
-      setTimeout(function() { btn.textContent = '🔗 Share'; }, 2500);
+      window.prompt('Copy this link:', url);
     });
   }
 }
@@ -838,7 +856,7 @@ function loadFromUrl() {
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js');
+    navigator.serviceWorker.register('/SharX/sw.js');
   });
 }
 renderHistory();
