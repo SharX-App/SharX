@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.getsharx.twa",
+        "sha256_cert_fingerprints": ["7D:01:DA:0B:B5:15:FC:3D:2F:24:26:88:C0:AB:59:D5:15:9C:82:50:A8:51:E1:FB:B1:B6:AF:0A:21:6A:90:82"]
+      }
+    }]
