@@ -1,0 +1,8 @@
+name = "lively-sea-b64c"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sharx-cache"
+database_id = "3f2bf6ec-eb01-4e9c-a687-33e379601ef5"
