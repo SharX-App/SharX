@@ -184,6 +184,38 @@ async function handleForms(url) {
   }
 }
 
+function trimField(arr) {
+  return (arr && arr[0]) ? arr[0].slice(0, 600) : null;
+}
+
+async function handleLabel(url) {
+  // Strip a trailing "(Injection)" / "(Oral)" suffix added by the dosage-form picker —
+  // that's a UI artifact, not part of the actual openFDA-searchable name.
+  const rawName = (url.searchParams.get('name') || '').trim();
+  const name = rawName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  if (!name) return new Response(JSON.stringify({ found: false }), { headers: corsHeaders() });
+
+  try {
+    const nameEnc = encodeURIComponent(name);
+    const search = 'openfda.generic_name:"' + nameEnc + '"+OR+openfda.brand_name:"' + nameEnc + '"';
+    const res = await fetch('https://api.fda.gov/drug/label.json?search=' + search + '&limit=1');
+    if (!res.ok) return new Response(JSON.stringify({ found: false }), { headers: corsHeaders() });
+    const data = await res.json();
+    const r = data.results && data.results[0];
+    if (!r) return new Response(JSON.stringify({ found: false }), { headers: corsHeaders() });
+
+    return new Response(JSON.stringify({
+      found: true,
+      brand: (r.openfda && r.openfda.brand_name && r.openfda.brand_name[0]) || null,
+      boxedWarning: trimField(r.boxed_warning),
+      contraindications: trimField(r.contraindications),
+      drugInteractions: trimField(r.drug_interactions)
+    }), { headers: corsHeaders() });
+  } catch (e) {
+    return new Response(JSON.stringify({ found: false }), { headers: corsHeaders() });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
@@ -221,6 +253,9 @@ export default {
     }
     if (url.pathname === '/forms' && request.method === 'GET') {
       return handleForms(url);
+    }
+    if (url.pathname === '/label' && request.method === 'GET') {
+      return handleLabel(url);
     }
 
     const bodyText = await request.text();
