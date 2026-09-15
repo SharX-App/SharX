@@ -99,6 +99,91 @@ function wrapCachedResult(resultJsonText) {
   });
 }
 
+// Maps raw RxNorm dose-form text to a ROUTE OF ADMINISTRATION, not the exact form —
+// tablet vs capsule vs oral solution are all "Oral" and clinically interchangeable for
+// interaction purposes, but Oral vs Injection vs Topical genuinely changes the risk
+// (e.g. Wegovy: oral semaglutide has a fasting/timing interaction, the injection doesn't).
+// Ordered longest/most-specific-first so e.g. "Auto-Injector" matches before "Injection".
+const DOSE_FORM_KEYWORDS = [
+  ['AUTO-INJECTOR', 'Injection'],
+  ['PEN INJECTOR', 'Injection'],
+  ['PREFILLED SYRINGE', 'Injection'],
+  ['INJECTABLE', 'Injection'],
+  ['INJECTION', 'Injection'],
+  ['CHEWABLE TABLET', 'Oral'],
+  ['DISINTEGRATING TABLET', 'Oral'],
+  ['ORAL TABLET', 'Oral'],
+  ['TABLET', 'Oral'],
+  ['ORAL CAPSULE', 'Oral'],
+  ['CAPSULE', 'Oral'],
+  ['ORAL SOLUTION', 'Oral'],
+  ['ORAL SUSPENSION', 'Oral'],
+  ['SYRUP', 'Oral'],
+  ['POWDER', 'Oral'],
+  ['TOPICAL CREAM', 'Topical'],
+  ['TOPICAL GEL', 'Topical'],
+  ['TOPICAL SOLUTION', 'Topical'],
+  ['TRANSDERMAL', 'Topical (Patch)'],
+  ['PATCH', 'Topical (Patch)'],
+  ['NASAL SPRAY', 'Nasal Spray'],
+  ['INHALANT', 'Inhaler'],
+  ['SUPPOSITORY', 'Suppository']
+];
+
+function detectDoseForm(name) {
+  const upper = (name || '').toUpperCase();
+  for (let i = 0; i < DOSE_FORM_KEYWORDS.length; i++) {
+    if (upper.indexOf(DOSE_FORM_KEYWORDS[i][0]) !== -1) return DOSE_FORM_KEYWORDS[i][1];
+  }
+  return null;
+}
+
+async function handleAutocomplete(url) {
+  const q = (url.searchParams.get('q') || '').trim();
+  if (q.length < 3) return new Response(JSON.stringify({ suggestions: [] }), { headers: corsHeaders() });
+
+  try {
+    const res = await fetch('https://rxnav.nlm.nih.gov/REST/approximateTerm.json?term=' + encodeURIComponent(q) + '&maxEntries=15');
+    const data = await res.json();
+    const candidates = (data.approximateGroup && data.approximateGroup.candidate) || [];
+    const seen = new Set();
+    const suggestions = [];
+    for (const c of candidates) {
+      if (!c.name) continue;
+      const key = c.name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      suggestions.push(c.name);
+      if (suggestions.length >= 8) break;
+    }
+    return new Response(JSON.stringify({ suggestions }), { headers: corsHeaders() });
+  } catch (e) {
+    return new Response(JSON.stringify({ suggestions: [] }), { headers: corsHeaders() });
+  }
+}
+
+async function handleForms(url) {
+  const name = (url.searchParams.get('name') || '').trim();
+  if (!name) return new Response(JSON.stringify({ forms: [] }), { headers: corsHeaders() });
+
+  try {
+    const res = await fetch('https://rxnav.nlm.nih.gov/REST/drugs.json?name=' + encodeURIComponent(name));
+    const data = await res.json();
+    const groups = (data.drugGroup && data.drugGroup.conceptGroup) || [];
+    const forms = new Set();
+    for (const g of groups) {
+      if (g.tty !== 'SCD' && g.tty !== 'SBD') continue;
+      for (const c of (g.conceptProperties || [])) {
+        const label = detectDoseForm(c.name);
+        if (label) forms.add(label);
+      }
+    }
+    return new Response(JSON.stringify({ forms: Array.from(forms) }), { headers: corsHeaders() });
+  } catch (e) {
+    return new Response(JSON.stringify({ forms: [] }), { headers: corsHeaders() });
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') {
@@ -106,7 +191,7 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Headers': 'Content-Type, x-api-key, anthropic-version',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS'
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
         }
       });
     }
@@ -128,6 +213,14 @@ export default {
         status: 429,
         headers: corsHeaders()
       });
+    }
+
+    const url = new URL(request.url);
+    if (url.pathname === '/autocomplete' && request.method === 'GET') {
+      return handleAutocomplete(url);
+    }
+    if (url.pathname === '/forms' && request.method === 'GET') {
+      return handleForms(url);
     }
 
     const bodyText = await request.text();

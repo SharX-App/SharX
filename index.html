@@ -106,6 +106,11 @@
   .add-slot-btn:hover { background:#f0fdf8; }
   .add-slot-btn:disabled { color:#9ca3af;border-color:#d1d5db;cursor:not-allowed; }
 
+  .slot-form { padding:9px 10px;font-size:12px;font-weight:600;color:#1D9E75;background:#f0fdf8;border:none;border-left:1px solid #d1d5db;white-space:nowrap;max-width:160px;cursor:pointer;outline:none; }
+  #ac-dropdown { display:none;position:fixed;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.12);max-height:220px;overflow-y:auto;z-index:1000; }
+  .ac-item { padding:8px 12px;font-size:13px;color:#1a1a1a;cursor:pointer; }
+  .ac-item:hover { background:#f0fdf8; }
+
   @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
   .slot-row.shake { animation:shake 0.45s ease; border-color:#DC2626 !important; }
   .slot-row.shake .slot-input { color:#DC2626; }
@@ -200,6 +205,7 @@
         </div>
       </div>
       <button class="add-slot-btn" id="add-slot-btn" onclick="addSlot()">+ Add substance (optional)</button>
+      <div id="ac-dropdown"></div>
 
       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;margin-top:4px;">Your health conditions <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;">(optional)</span></div>
       <div style="background:#fff;border:1px solid #d1d5db;border-radius:10px;padding:9px 12px;margin-bottom:12px;">
@@ -299,6 +305,9 @@
 <script>
 let conditions = [];
 let slotCounter = 2;
+const WORKER_URL = 'https://lively-sea-b64c.bbeljin.workers.dev';
+let acDebounceTimer = null;
+let acActiveInput = null;
 
 var LANGUAGES = {
   'en': 'English',
@@ -400,6 +409,80 @@ function getEmoji(type) {
   return '🌿';
 }
 
+function hideAcDropdown() {
+  var dd = document.getElementById('ac-dropdown');
+  if (dd) dd.style.display = 'none';
+  acActiveInput = null;
+}
+
+function showAcDropdown(suggestions, inputEl) {
+  var dd = document.getElementById('ac-dropdown');
+  if (!dd || !suggestions.length) { hideAcDropdown(); return; }
+  var rect = inputEl.getBoundingClientRect();
+  dd.style.left = rect.left + 'px';
+  dd.style.top = (rect.bottom + 2) + 'px';
+  dd.style.width = rect.width + 'px';
+  dd.innerHTML = suggestions.map(function(s) { return '<div class="ac-item">' + escapeHtml(s) + '</div>'; }).join('');
+  dd.style.display = 'block';
+  acActiveInput = inputEl;
+}
+
+function fetchAutocomplete(term, inputEl) {
+  fetch(WORKER_URL + '/autocomplete?q=' + encodeURIComponent(term))
+    .then(function(r) { return r.json(); })
+    .then(function(data) { showAcDropdown(data.suggestions || [], inputEl); })
+    .catch(function() { hideAcDropdown(); });
+}
+
+function checkFormsForRow(row, name) {
+  var existing = row.querySelector('.slot-form');
+  if (existing) existing.remove();
+  if (!name) return;
+  fetch(WORKER_URL + '/forms?name=' + encodeURIComponent(name))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var forms = data.forms || [];
+      if (forms.length < 2) return;
+      var select = document.createElement('select');
+      select.className = 'slot-form';
+      select.innerHTML = '<option value="">Which form?</option>' +
+        forms.map(function(f) { return '<option value="' + escapeHtml(f) + '">' + escapeHtml(f) + '</option>'; }).join('');
+      row.insertBefore(select, row.querySelector('.slot-remove'));
+    })
+    .catch(function() {});
+}
+
+document.getElementById('slots-wrapper').addEventListener('input', function(e) {
+  if (!e.target.classList.contains('slot-input')) return;
+  var row = e.target.closest('.slot-row');
+  if (row.querySelector('.slot-type').value !== 'Drug (Rx)') { hideAcDropdown(); return; }
+  var term = e.target.value.trim();
+  clearTimeout(acDebounceTimer);
+  if (term.length < 3) { hideAcDropdown(); return; }
+  var inputEl = e.target;
+  acDebounceTimer = setTimeout(function() { fetchAutocomplete(term, inputEl); }, 300);
+});
+
+document.getElementById('slots-wrapper').addEventListener('focusout', function(e) {
+  if (!e.target.classList.contains('slot-input')) return;
+  var row = e.target.closest('.slot-row');
+  var value = e.target.value.trim();
+  setTimeout(function() {
+    hideAcDropdown();
+    if (row.querySelector('.slot-type').value === 'Drug (Rx)') checkFormsForRow(row, value);
+  }, 150);
+});
+
+document.getElementById('ac-dropdown').addEventListener('mousedown', function(e) {
+  var item = e.target.closest('.ac-item');
+  if (!item || !acActiveInput) return;
+  e.preventDefault();
+  var row = acActiveInput.closest('.slot-row');
+  acActiveInput.value = item.textContent;
+  hideAcDropdown();
+  checkFormsForRow(row, item.textContent);
+});
+
 function addSlot() {
   const wrapper = document.getElementById('slots-wrapper');
   if (wrapper.querySelectorAll('.slot-row').length >= 5) return;
@@ -432,7 +515,10 @@ function loadExample(slots) {
 
 function getSlots() {
   return Array.from(document.querySelectorAll('.slot-row')).map(function(row) {
-    return { type: row.querySelector('.slot-type').value, value: row.querySelector('.slot-input').value.trim() };
+    var value = row.querySelector('.slot-input').value.trim();
+    var formSelect = row.querySelector('.slot-form');
+    if (value && formSelect && formSelect.value) value = value + ' (' + formSelect.value + ')';
+    return { type: row.querySelector('.slot-type').value, value: value };
   }).filter(function(s) { return s.value; });
 }
 
@@ -600,7 +686,7 @@ async function checkInteraction(forceRefresh) {
     condStr + langInstruction;
 
   try {
-    const response = await fetch('https://lively-sea-b64c.bbeljin.workers.dev', {
+    const response = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
