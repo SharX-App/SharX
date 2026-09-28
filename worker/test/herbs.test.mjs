@@ -25,7 +25,7 @@ const EXPECTED = {
   varfarin: '23 31 40 43 54 57 61 76 85 96 102 111 114 116 126 127 132 134 150 154 162 169a',
 };
 
-const allPlants = HERB_DB.plants.filter(function (p) { return p.volume === 1; }).map(function (p) { return { type: 'Herb', value: p.sr }; });
+const allPlants = HERB_DB.plants.filter(function (p) { return p.volume === 1; }).map(function (p) { return { type: 'Herb', value: p.text.sr.name }; });
 let failed = 0;
 for (const [drug, exp] of Object.entries(EXPECTED)) {
   const book = await findBookMatches([{ type: 'Drug (Rx)', value: drug }].concat(allPlants));
@@ -42,7 +42,7 @@ for (const [drug, exp] of Object.entries(EXPECTED)) {
 // Prepoznavanje biljke po aliasima + da slicna imena NE hvataju pogresnu biljku
 const aliasCases = [['Ashwagandha', 'Ašvaganda'], ['asvaganda', 'Ašvaganda'], ['Hypericum perforatum', 'Kantarion'],
   ["St. John's wort", 'Kantarion'], ['Zob', 'Ovas / Zob'], ['Kantarion (Hypericum perforatum)', 'Kantarion'],
-  ['kamilica', null], ['lipa', null], ['ginseng', 'Ženšen']];
+  ['kamilica', null], ['lipa', 'Lipa'], ['lipa sitnolisna', 'Lipa sitnolisna'], ['ginseng', 'Ženšen']];
 for (const [input, want] of aliasCases) {
   const book = await findBookMatches([{ type: 'Herb', value: input }]);
   const got = book ? book.plants[0].sr : null;
@@ -84,6 +84,36 @@ for (const [herb, drug, lang, want] of tom2Cases) {
   if (got !== want) failed++;
   console.log((got === want ? 'OK  ' : 'FAIL') + ' T2 ' + (herb + ' + ' + drug + ' [' + lang + ']').padEnd(40) + ' -> ' + got +
     (book && book.hits.length ? '  (' + book.hits.map(function (h) { return h.interaction.id; }).join(',') + ')' : ''));
+}
+// Tom 3 + ispravljeni nazivi iz knjige (28.09)
+const tom3Cases = [
+  ['Tatula', 'oxybutynin', 'sr', 'MAJOR'],
+  ['Morska sleđika', 'phenelzine', 'sr', 'MAJOR'],
+  ['Sladić', 'digoxin', 'sr', 'MODERATE'],
+  ['Sage', 'warfarin', 'en', 'MODERATE'],
+  ['Crni luk', 'apixaban', 'sr', 'Claude'],
+  ['Potočarka', 'warfarin', 'sr', 'Claude'],
+  ['Kamfor', 'phenytoin', 'en', 'MODERATE'],
+];
+for (const [herb, drug, lang, want] of tom3Cases) {
+  const book = await findBookMatches([{ type: 'Herb', value: herb }, { type: 'Drug (Rx)', value: drug }]);
+  let got;
+  if (!book || !book.hits.length) got = 'nema';
+  else if (canAnswerFromBook(book, [1, 2], lang, false)) got = buildBookResult(book, lang).severity;
+  else got = 'Claude';
+  if (got !== want) failed++;
+  console.log((got === want ? 'OK  ' : 'FAIL') + ' T3 ' + (herb + ' + ' + drug + ' [' + lang + ']').padEnd(40) + ' -> ' + got +
+    (book && book.hits.length ? '  (' + book.hits.map(function (h) { return h.interaction.id; }).join(',') + ')' : ''));
+}
+const nameCases = [['podbel', ['3:Podbel:Tussilago farfara']], ['repuh', ['1:Podbel:Petasites hybridus']],
+  ['divizma', ['3:Divizma:Verbascum phlomoides']], ['dubačac', ['2:Divizma:Teucrium chamaedrys']],
+  ['CYP2E1 interakcija', []], ['potočarka', ['3:CYP2E1 interakcija:Nasturtium officinale', '3:PEITC / vitamin K:Nasturtium officinale']]];
+for (const [input, want] of nameCases) {
+  const book = await findBookMatches([{ type: 'Herb', value: input }]);
+  const got = book ? book.plants.map(function (p) { return p.key; }) : [];
+  const ok = JSON.stringify(got) === JSON.stringify(want);
+  if (!ok) failed++;
+  console.log((ok ? 'OK  ' : 'FAIL') + ' ime ' + JSON.stringify(input).padEnd(22) + ' -> ' + (got.join(' | ') || '(nema)'));
 }
 console.log(failed ? '\n' + failed + ' FAIL' : '\nSVE PROSLO');
 process.exit(failed ? 1 : 0);
