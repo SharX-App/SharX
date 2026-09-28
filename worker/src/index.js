@@ -1,3 +1,5 @@
+import { findBookMatches, canAnswerFromBook, buildBookResult, buildSourceBlock } from './herbs.js';
+
 const RATE_LIMIT = 30;
 const WINDOW_MS = 10 * 60 * 1000;
 
@@ -5,7 +7,7 @@ const ipRequests = new Map();
 
 // Bump this whenever the system prompt in index.html changes meaningfully —
 // it invalidates old D1 cache rows without deleting them (they just stop matching).
-const CURRENT_PROMPT_VERSION = 'v1-guardrails-15';
+const CURRENT_PROMPT_VERSION = 'v2-monographs-tom1';
 
 // Minimal starter synonym map so brand names / common aliases collapse onto the
 // same cache row as their canonical form. Extend over time.
@@ -269,6 +271,29 @@ export default {
 
     let pairKey = null;
 
+    let book = null;
+    if (meta && Array.isArray(meta.items) && meta.items.length > 0) {
+      try {
+        book = await findBookMatches(meta.items);
+      } catch (e) {
+        // Monograph lookup is an enhancement — fail open to the normal flow.
+      }
+    }
+
+    if (canAnswerFromBook(book, meta ? meta.items : [], meta && meta.lang, hasConditions)) {
+      return new Response(wrapCachedResult(JSON.stringify(buildBookResult(book, meta.lang))), {
+        status: 200,
+        headers: corsHeaders()
+      });
+    }
+
+    if (book && book.hits.length > 0) {
+      const system = typeof parsedBody.system === 'string'
+        ? [{ type: 'text', text: parsedBody.system }]
+        : (parsedBody.system || []);
+      parsedBody.system = system.concat([{ type: 'text', text: buildSourceBlock(book, meta.lang) }]);
+    }
+
     if (canUseCache) {
       pairKey = buildPairKey(meta.items.map(function (i) { return i.value; }), meta.lang);
       try {
@@ -286,7 +311,7 @@ export default {
 
     // Cache miss (or bypass): forward to Anthropic. Strip our custom `meta` field first.
     let forwardBody = bodyText;
-    if (parsedBody && Object.prototype.hasOwnProperty.call(parsedBody, 'meta')) {
+    if (parsedBody && (Object.prototype.hasOwnProperty.call(parsedBody, 'meta') || (book && book.hits.length > 0))) {
       const rest = Object.assign({}, parsedBody);
       delete rest.meta;
       forwardBody = JSON.stringify(rest);

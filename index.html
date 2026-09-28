@@ -259,7 +259,7 @@
         <div id="panel-interactions" class="result-body">
           <div class="result-section">
             <div class="result-section-title">Mechanism</div>
-            <div class="result-text" id="result-mechanism"></div>
+            <div class="result-text" id="result-mechanism" style="white-space:pre-line;"></div>
           </div>
           <div class="result-section">
             <div class="result-section-title">Clinical significance</div>
@@ -807,13 +807,14 @@ function showResult(slots, result, fromCache) {
     metaRow.innerHTML += '<span class="meta-chip" style="border-color:' + fc + ';color:' + fc + ';font-weight:600;">📊 ' + escapeHtml(result.frequency) + '</span>';
   }
   slots.forEach(function(s) { metaRow.innerHTML += '<span class="meta-chip">' + getEmoji(s.type) + ' ' + escapeHtml(s.type) + ': ' + escapeHtml(s.value) + '</span>'; });
+  if (result.source === 'book') metaRow.innerHTML += '<span class="meta-chip" style="border-color:#1D9E75;color:#065f46;background:#f0fdf8;font-weight:600;">📖 ' + (currentLang === 'sr' ? 'Monografija Magister Naturae · pregledao farmaceut' : 'Magister Naturae monograph · pharmacist-reviewed') + '</span>';
 
   // Unknown substance UI
   const panel = document.getElementById('panel-interactions');
   if (result.unknown_substance && result.unknown_name) {
     panel.innerHTML = '<div style="padding:16px;"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:12px 14px;"><div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:3px;">🔍 Substance not recognized — ' + escapeHtml(result.unknown_name) + '</div><div style="font-size:11px;color:#64748b;line-height:1.6;">Not found as a standard drug, supplement, or herb.</div><div style="margin-top:8px;padding:6px 10px;background:#eff6ff;border-radius:7px;font-size:11px;color:#1d4ed8;font-weight:500;">💡 Enter the generic/INN name or active ingredient from the product label.</div></div></div>';
   } else {
-    panel.innerHTML = '<div class="result-body"><div class="result-section"><div class="result-section-title">Mechanism</div><div class="result-text" id="result-mechanism"></div></div><div class="result-section"><div class="result-section-title">Clinical significance</div><div class="result-text" id="result-clinical"></div></div><div class="result-section"><div class="result-section-title">Recommendation</div><div class="result-text" id="result-recommendation"></div></div></div>';
+    panel.innerHTML = '<div class="result-body"><div class="result-section"><div class="result-section-title">Mechanism</div><div class="result-text" id="result-mechanism" style="white-space:pre-line;"></div></div><div class="result-section"><div class="result-section-title">Clinical significance</div><div class="result-text" id="result-clinical"></div></div><div class="result-section"><div class="result-section-title">Recommendation</div><div class="result-text" id="result-recommendation"></div></div></div>';
     document.getElementById('result-mechanism').textContent = result.mechanism || '';
     document.getElementById('result-clinical').textContent = result.clinical || '';
     document.getElementById('result-recommendation').textContent = result.recommendation || '';

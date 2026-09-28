@@ -1,4 +1,4 @@
-const CACHE = 'sharx-v7';
+const CACHE = 'sharx-v8';
 const ASSETS = ['/SharX/', '/SharX/index.html', '/SharX/manifest.json'];
 
 self.addEventListener('install', e => {
