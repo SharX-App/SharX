@@ -42,7 +42,7 @@ for (const [drug, exp] of Object.entries(EXPECTED)) {
 // Prepoznavanje biljke po aliasima + da slicna imena NE hvataju pogresnu biljku
 const aliasCases = [['Ashwagandha', 'Ašvaganda'], ['asvaganda', 'Ašvaganda'], ['Hypericum perforatum', 'Kantarion'],
   ["St. John's wort", 'Kantarion'], ['Zob', 'Ovas / Zob'], ['Kantarion (Hypericum perforatum)', 'Kantarion'],
-  ['kamilica', null], ['lipa', 'Lipa'], ['lipa sitnolisna', 'Lipa sitnolisna'], ['ginseng', 'Ženšen']];
+  ['kamilica', 'Kamilica'], ['lipa', 'Lipa'], ['lipa sitnolisna', 'Lipa sitnolisna'], ['ginseng', 'Ženšen']];
 for (const [input, want] of aliasCases) {
   const book = await findBookMatches([{ type: 'Herb', value: input }]);
   const got = book ? book.plants[0].sr : null;
@@ -103,6 +103,76 @@ for (const [herb, drug, lang, want] of tom3Cases) {
   else got = 'Claude';
   if (got !== want) failed++;
   console.log((got === want ? 'OK  ' : 'FAIL') + ' T3 ' + (herb + ' + ' + drug + ' [' + lang + ']').padEnd(40) + ' -> ' + got +
+    (book && book.hits.length ? '  (' + book.hits.map(function (h) { return h.interaction.id; }).join(',') + ')' : ''));
+}
+const tom4Cases = [
+  ['Kina', 'amiodarone', 'sr', 'MAJOR'],
+  ['Milostivka', 'digoxin', 'sr', 'MAJOR'],
+  ['Sena', 'digoxin', 'sr', 'MODERATE'],
+  ['Cinchona', 'metoprolol', 'en', 'MODERATE'],
+  ['Amla', 'warfarin', 'en', 'Claude'],
+  ['Amla', 'warfarin', 'sr', 'MINOR'],
+];
+for (const [herb, drug, lang, want] of tom4Cases) {
+  const book = await findBookMatches([{ type: 'Herb', value: herb }, { type: 'Drug (Rx)', value: drug }]);
+  let got;
+  if (!book || !book.hits.length) got = 'nema';
+  else if (canAnswerFromBook(book, [1, 2], lang, false)) got = buildBookResult(book, lang).severity;
+  else got = 'Claude';
+  if (got !== want) failed++;
+  console.log((got === want ? 'OK  ' : 'FAIL') + ' T4 ' + (herb + ' + ' + drug + ' [' + lang + ']').padEnd(40) + ' -> ' + got +
+    (book && book.hits.length ? '  (' + book.hits.map(function (h) { return h.interaction.id; }).join(',') + ')' : ''));
+}
+const tom5Cases = [
+  ['Uzara', 'digoxin', 'sr', 'MAJOR'],
+  ['Kamilica', 'warfarin', 'sr', 'MODERATE'],
+  ['Chamomile', 'warfarin', 'en', 'MODERATE'],
+  ['Rimska kamilica', 'warfarin', 'sr', 'MODERATE'],
+  ['Mogranj', 'simvastatin', 'sr', 'MODERATE'],
+  ['Mažuran', 'warfarin', 'en', 'Claude'],
+];
+for (const [herb, drug, lang, want] of tom5Cases) {
+  const book = await findBookMatches([{ type: 'Herb', value: herb }, { type: 'Drug (Rx)', value: drug }]);
+  let got;
+  if (!book || !book.hits.length) got = 'nema';
+  else if (canAnswerFromBook(book, [1, 2], lang, false)) got = buildBookResult(book, lang).severity;
+  else got = 'Claude';
+  if (got !== want) failed++;
+  console.log((got === want ? 'OK  ' : 'FAIL') + ' T5 ' + (herb + ' + ' + drug + ' [' + lang + ']').padEnd(40) + ' -> ' + got +
+    (book && book.hits.length ? '  (' + book.hits.map(function (h) { return h.interaction.id; }).join(',') + ')' : ''));
+}
+const tom6Cases = [
+  ['Kurkuma', 'warfarin', 'sr', 'MODERATE'],
+  ['Turmeric', 'cyclosporine', 'en', 'MODERATE'],
+  ['Preslica', 'lithium carbonate', 'sr', 'MODERATE'],
+  ['Tisa', 'digoxin', 'sr', 'MAJOR'],
+  ['Milk thistle', 'warfarin', 'en', 'MODERATE'],
+  ['Preslica', 'lithium', 'sr', 'MODERATE'],
+];
+for (const [herb, drug, lang, want] of tom6Cases) {
+  const book = await findBookMatches([{ type: 'Herb', value: herb }, { type: 'Drug (Rx)', value: drug }]);
+  let got;
+  if (!book || !book.hits.length) got = 'nema';
+  else if (canAnswerFromBook(book, [1, 2], lang, false)) got = buildBookResult(book, lang).severity;
+  else got = 'Claude';
+  if (got !== want) failed++;
+  console.log((got === want ? 'OK  ' : 'FAIL') + ' T6 ' + (herb + ' + ' + drug + ' [' + lang + ']').padEnd(40) + ' -> ' + got +
+    (book && book.hits.length ? '  (' + book.hits.map(function (h) { return h.interaction.id; }).join(',') + ')' : ''));
+}
+const tom7Cases = [
+  ['Ražena glavnica', 'sumatriptan', 'sr', 'MAJOR'],
+  ['Vitex', 'haloperidol', 'sr', 'MODERATE'],
+  ['Crvena detelina', 'tamoxifen', 'sr', 'MODERATE'],
+  ['Serenoa', 'warfarin', 'sr', 'nema'],
+];
+for (const [herb, drug, lang, want] of tom7Cases) {
+  const book = await findBookMatches([{ type: 'Herb', value: herb }, { type: 'Drug (Rx)', value: drug }]);
+  let got;
+  if (!book || !book.hits.length) got = 'nema';
+  else if (canAnswerFromBook(book, [1, 2], lang, false)) got = buildBookResult(book, lang).severity;
+  else got = 'Claude';
+  if (got !== want) failed++;
+  console.log((got === want ? 'OK  ' : 'FAIL') + ' T7 ' + (herb + ' + ' + drug + ' [' + lang + ']').padEnd(40) + ' -> ' + got +
     (book && book.hits.length ? '  (' + book.hits.map(function (h) { return h.interaction.id; }).join(',') + ')' : ''));
 }
 const nameCases = [['podbel', ['3:Podbel:Tussilago farfara']], ['repuh', ['1:Podbel:Petasites hybridus']],

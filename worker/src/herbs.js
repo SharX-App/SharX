@@ -92,12 +92,22 @@ async function resolveDrug(value) {
   const ingredients = p.tty === 'IN' ? [{ rxcui: rxcui, name: p.name }] : await relatedConcepts(rxcui, 'IN');
 
   return Promise.all(ingredients.map(async function (ing) {
-    return { inn: (ing.name || '').toLowerCase(), atc: await atcFor(ing.rxcui) };
+    const inn = (ing.name || '').toLowerCase();
+    let atc = await atcFor(ing.rxcui);
+    // Some salts are separate RxNorm ingredients without ATC ("lithium carbonate") —
+    // fall back to the base ingredient ("lithium"), which carries the ATC code.
+    const base = inn.split(' ')[0];
+    if (!atc.length && base !== inn) {
+      const baseIds = await rx('/rxcui.json?name=' + encodeURIComponent(base) + '&search=2');
+      const baseRxcui = baseIds.idGroup && baseIds.idGroup.rxnormId && baseIds.idGroup.rxnormId[0];
+      if (baseRxcui) atc = await propAtc(baseRxcui);
+    }
+    return { inn: inn, base: base, atc: atc };
   }));
 }
 
 function interactionMatches(it, drug) {
-  if (it.explicit.indexOf(drug.inn) !== -1) return true;
+  if (it.explicit.indexOf(drug.inn) !== -1 || it.explicit.indexOf(drug.base) !== -1) return true;
   return it.cats.some(function (k) {
     const cat = HERB_DB.categories[k];
     if (!cat) return false;
@@ -152,7 +162,7 @@ const LABELS = {
 export function canAnswerFromBook(book, items, lang, hasConditions) {
   return !!book && HERB_DB.langs.indexOf(lang) !== -1 && !hasConditions && items.length === 2 &&
     book.plants.length === 1 && book.hits.length > 0 &&
-    book.hits.every(function (h) { return !h.interaction.changed; });
+    book.hits.every(function (h) { return !h.interaction.changed && h.interaction.text[lang]; });
 }
 
 function splitContraindications(text) {
@@ -210,7 +220,8 @@ export function buildSourceBlock(book, lang) {
   const src = HERB_DB.langs.indexOf(lang) !== -1 ? lang : 'en';
   const lines = book.hits.map(function (h) {
     const it = h.interaction;
-    const t = it.text[src];
+    // Tom 4+: kad se EN tekst stavke nije mogao poravnati sa SR, šalje se SR tekst (Claude odgovara na jeziku korisnika).
+    const t = it.text[src] || it.text.sr;
     let line = '- Plant: ' + h.plant.text[src].name + (h.plant.latin ? ' (' + h.plant.latin + ')' : '') +
       ' | Drug in query: ' + h.drugValue + ' | Book entry: ' + t.drug_text +
       ' | Level: ' + (it.major ? 'MAJOR (pharmacist-assigned)' : (it.severity === 'warning' ? 'WARNING' : 'INFO')) +
